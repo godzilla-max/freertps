@@ -8,13 +8,17 @@ freertpsを使用したMCUへのROS2実装デモ
 
 参考：
 ROSCon2017でのライトニングトークプレゼン
+
 https://roscon.ros.org/2017/presentations/ROSCon%202017%20Lightning%20110.pdf
+
 https://vimeo.com/236129109
 
 RX63N
+
 https://www.renesas.com/ja-jp/products/microcontrollers-microprocessors/rx.html
 
 GR-SAKURA II-FULL
+
 http://gadget.renesas.com/ja/product/sakura.html
 
 
@@ -38,6 +42,7 @@ http://gadget.renesas.com/ja/product/sakura.html
 作成したイメージが動作するターゲットボード。2枚のGR-SAKURA II-FULL（以降、SAKURA）が必要です。以下で購入が可能です。
 
 http://wakamatsu.mobi/eccube/html/products/detail.php?product_id=12010659
+
 http://jp.rs-online.com/web/p/processor-microcontroller-development-kits/1229826/
 
 * SAKURA(Pub): メッセージを送信するボード。Joystickシールドを取り付けて使用します。
@@ -47,6 +52,7 @@ http://jp.rs-online.com/web/p/processor-microcontroller-development-kits/1229826
 
 (2) Joystickシールド
 SAKURA(Pub)に接続するArduinoシールドです。以下などで購入が可能です。
+
 https://www.sainsmart.com/products/sainsmart-joystick-shied-expansion-board-for-arduino
 
 このシールドはSAKURAに直接搭載するとRJ45ポートと干渉します。ピンヘッダーなどで回避してください。
@@ -108,6 +114,7 @@ https://www.renesas.com/ja-jp/software/D3017333.html
 (1) 以下のソースコードを入手し、任意のディレクトに展開します。
 
 RXファミリ 組み込み用TCP/IP M3S-T4-Tinyを用いたサンプルプログラム Firmware Integration Technology
+
 https://www.renesas.com/ja-jp/software/D6000791.html
 
 (2) 展開したディレクトリ内の以下のファイルを編集します。
@@ -128,7 +135,9 @@ UARTへの供給クロックを変更するため、以下のマクロ BSP_CFG_PCKB_DIVの値を(4)から(2
 
 
 (3) 以下のURLよりRX63N版のfreertpsを入手します。
+
 https://github.com/godzilla-max/freertps/archive/porting-to-rx.zip
+
 上記アーカイブ内のディレクトリ名を「freertps」に変更して、以下のディレクトリ内で展開してください。
 
 ```
@@ -136,8 +145,10 @@ https://github.com/godzilla-max/freertps/archive/porting-to-rx.zip
 ```
 
 (4) 以下のURLよりデモアプリケーションで使用するUARTドライバを入手します。
+
 https://github.com/godzilla-max/uart/archive/master.zip
-上記アーカイブは以下のディレクトリ内で展開してください。
+
+上記アーカイブ内のディレクトリ名を「uart」に変更して、以下のディレクトリ内で展開してください。
 
 ```
     workspace/sample/rx63n_gr_sakura/
@@ -192,6 +203,7 @@ https://github.com/godzilla-max/uart/archive/master.zip
 
 詳細は以下に記載されていますが、RX63N用にCS+プロジェクトに変換します。
 RX ファミリ 組み込み用TCP/IP M3S-T4-Tiny を用いたサンプルプログラム（第５章）
+
 https://www.renesas.com/ja-jp/doc/products/mpumcu/apn/rx/002/r20an0312jj0106-rx-t4.pdf
 
 RX63Nプロジェクト変換では、以下のように設定します。マイクロコントローラの品番が違うこと、命令セット・アーキテクチャの設定を変更しないことに注意してください。
@@ -511,6 +523,7 @@ Byte
 
 使用モーター
 Dynamixel MX-64AR
+
 http://support.robotis.com/en/product/actuator/dynamixel/mx_series/mx-64at_ar.htm
 
 
