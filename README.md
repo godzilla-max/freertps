@@ -128,8 +128,8 @@ UARTへの供給クロックを変更するため、以下のマクロ BSP_CFG_PCKB_DIVの値を(4)から(2
 
 
 (3) 以下のURLよりRX63N版のfreertpsを入手します。
-https://github.com/godzilla-max/freertps/archive/master.zip
-上記アーカイブは以下のディレクトリ内で展開してください。
+https://github.com/godzilla-max/freertps/archive/porting-to-rx.zip
+上記アーカイブ内のディレクトリ名を「freertps」に変更して、以下のディレクトリ内で展開してください。
 
 ```
     workspace/sample/rx63n_gr_sakura/
@@ -139,7 +139,7 @@ https://github.com/godzilla-max/freertps/archive/master.zip
 https://github.com/godzilla-max/uart/archive/master.zip
 上記アーカイブは以下のディレクトリ内で展開してください。
 
-```     
+```
     workspace/sample/rx63n_gr_sakura/
 ```
 

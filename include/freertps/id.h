@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifdef __GNUC__
 typedef union
 {
   struct
@@ -13,6 +14,19 @@ typedef union
   } s;
   uint32_t u;
 } __attribute__((packed)) frudp_eid_t; // entity ID
+#elif __RX == 1
+#pragma pack
+typedef union
+{
+  struct
+  {
+    uint8_t key[3];
+    uint8_t kind;
+  } s;
+  uint32_t u;
+} frudp_eid_t; // entity ID
+#pragma unpack
+#endif /* __RX == 1 */
 
 #define FRUDP_ENTITY_KIND_USER_WRITER_WITH_KEY 0x02
 #define FRUDP_ENTITY_KIND_USER_WRITER_NO_KEY   0x03
@@ -27,11 +41,21 @@ typedef struct
   uint8_t prefix[FRUDP_GUID_PREFIX_LEN];
 } frudp_guid_prefix_t;
 
+#ifdef __GNUC__
 typedef struct
 {
   frudp_guid_prefix_t prefix;
   frudp_eid_t eid;
 } __attribute__((packed)) frudp_guid_t;
+#elif __RX == 1
+#pragma pack
+typedef struct
+{
+  frudp_guid_prefix_t prefix;
+  frudp_eid_t eid;
+} frudp_guid_t;
+#pragma unpack
+#endif /* __RX == 1 */
 extern const frudp_guid_t g_frudp_guid_unknown;
 
 bool frudp_guid_prefix_identical(frudp_guid_prefix_t * const a,

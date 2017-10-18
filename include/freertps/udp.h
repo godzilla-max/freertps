@@ -89,6 +89,7 @@ typedef struct
   uint32_t bitmap;
 } frudp_sn_set_32bits_t;
 
+#ifdef __GNUC__
 typedef struct
 {
   frudp_submsg_header_t header;
@@ -160,6 +161,83 @@ typedef struct
   uint16_t scheme;
   uint16_t options;
 } __attribute__((packed)) frudp_encapsulation_scheme_t;
+
+#elif __RX == 1
+#pragma pack
+typedef struct
+{
+  frudp_submsg_header_t header;
+  uint16_t extraflags;
+  uint16_t octets_to_inline_qos;
+  frudp_eid_t reader_id;
+  frudp_eid_t writer_id;
+  frudp_sn_t writer_sn;
+  uint8_t data[];
+} frudp_submsg_data_t;
+
+typedef struct frudp_submsg_data_frag
+{
+  struct frudp_submsg_header header;
+  uint16_t extraflags;
+  uint16_t octets_to_inline_qos;
+  frudp_eid_t reader_id;
+  frudp_eid_t writer_id;
+  frudp_sn_t writer_sn;
+  uint32_t fragment_starting_number;
+  uint16_t fragments_in_submessage;
+  uint16_t fragment_size;
+  uint32_t sample_size;
+  uint8_t data[];
+} frudp_submsg_data_frag_t;
+
+typedef struct
+{
+  frudp_submsg_header_t header;
+  frudp_eid_t reader_id;
+  frudp_eid_t writer_id;
+  frudp_sn_t first_sn;
+  frudp_sn_t last_sn;
+  uint32_t count;
+} frudp_submsg_heartbeat_t;
+
+typedef struct
+{
+  frudp_submsg_header_t header;
+  frudp_eid_t reader_id;
+  frudp_eid_t writer_id;
+  frudp_sn_t gap_start;
+  frudp_sn_set_t gap_end;
+} frudp_submsg_gap_t;
+
+typedef struct
+{
+  frudp_eid_t reader_id;
+  frudp_eid_t writer_id;
+  frudp_sn_set_t reader_sn_state;
+  // the "count" field that goes here is impossible to declare in legal C
+} frudp_submsg_acknack_t;
+
+typedef struct
+{
+  frudp_guid_prefix_t guid_prefix;
+} frudp_submsg_info_dest_t;
+
+typedef uint16_t frudp_parameterid_t;
+typedef struct
+{
+  frudp_parameterid_t pid;
+  uint16_t len;
+  uint8_t value[];
+} frudp_parameter_list_item_t;
+
+typedef struct
+{
+  uint16_t scheme;
+  uint16_t options;
+} frudp_encapsulation_scheme_t;
+
+#pragma pack
+#endif /* __RX == 1*/
 
 #define FRUDP_SCHEME_CDR_LE    0x0001
 #define FRUDP_SCHEME_PL_CDR_LE 0x0003

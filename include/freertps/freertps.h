@@ -31,6 +31,7 @@ typedef void (*freertps_msg_cb_t)(const void *msg);
 #define FREERTPS_FATAL(...) \
   do { printf("freertps FATAL: "); printf(__VA_ARGS__); } while (0)
 
+#ifdef __GNUC__
 typedef union rtps_active_psms
 {
     uint32_t val;
@@ -40,6 +41,19 @@ typedef union rtps_active_psms
       uint32_t ser : 1;
     } s;
 } __attribute__((packed)) rtps_active_psms_t;
+#elif __RX == 1
+#pragma pack
+typedef union rtps_active_psms
+{
+    uint32_t val;
+    struct rtps_active_psms_mask
+    {
+      uint32_t udp : 1;
+      uint32_t ser : 1;
+    } s;
+} rtps_active_psms_t;
+#pragma unpack
+#endif /* __RX ==1 */
 
 extern union rtps_active_psms g_rtps_active_psms;
 

@@ -11,7 +11,11 @@ void freertps_perish_if(bool b, const char *msg)
   if (b)
   {
     FREERTPS_FATAL("%s\n", msg);
+#if __RX == 1
+    while(1){}
+#else /* __RX == 1 */
     exit(1);
+#endif /* __RX == 1 */
   }
 }
 
