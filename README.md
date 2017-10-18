@@ -527,7 +527,7 @@ Dynamixel MX-64AR
 http://support.robotis.com/en/product/actuator/dynamixel/mx_series/mx-64at_ar.htm
 
 
-連絡
+お問い合わせ
 ===
 ROS Discourseにスレッドを立てる予定です。
 
@@ -537,5 +537,14 @@ ROS Discourseにスレッドを立てる予定です。
 
 * freertpsのAPI frudp_listen()の引数である時間間隔の精度は1秒単位です。1秒より短い時間間隔が必要な場合は"0.0f"を設定してください。
 * PC上のROS2への接続確認は、ミドルウェアとしてFast-RTPSを使っている環境でのみ行っています。他のミドルウェアへの接続は未確認です。
+
+
+免責事項
+===
+
+当デモのご利用、もしくはご利用になれないことにより発生したいかなる損害や不利益について、当方は一切の責任を負いません。自己責任の上でご使用下さい。
+
+
+
 
 
