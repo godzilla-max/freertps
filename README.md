@@ -1,4 +1,8 @@
 
+
+このリポジトリは、オリジナルの[freertps](https://github.com/ros2/freertps)からforkしたものに、ルネサス MCU RX63N向けの移植コードを追加しています。
+ルネサスの通信ライブラリ [M3S-T4-Tinyの無料評価版]( https://www.renesas.com/ja-jp/software/D6000791.html)と、このレポジトリの内容を組み合わせるだけで、MCU上のROS2環境を実現することができます。
+
 freertpsを使用したMCUへのROS2実装デモ
 ====================================
 
