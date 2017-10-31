@@ -1,275 +1,262 @@
+[Japanese version](./README.ja.md)
+
+This is a demonstration of ROS2 running on microcontrollers using freertps.
+
+This repository contains both RTPS code forked from the original [freertps](https://github.com/ros2/freertps) repository, and code for the target MCU (Renesas RX63N). This makes it possible to use ROS2 on the MCU by following the steps described below.
 
 
-このリポジトリは、オリジナルの[freertps](https://github.com/ros2/freertps)からforkしたものに、ルネサス MCU RX63N向けの移植コードを追加しています。
-ルネサスの通信ライブラリ [M3S-T4-Tinyの無料評価版]( https://www.renesas.com/ja-jp/software/D6000791.html)と、このレポジトリの内容を組み合わせるだけで、MCU上のROS2環境を実現することができます。
-
-freertpsを使用したMCUへのROS2実装デモ
-====================================
-
-デモの概要
+Demonstration overview
 ----------
-ルネサスのRX63Nが搭載されたArduino互換ボード（GR-SAKURA II-FULL）を使用してROS2を実装したデモです。
 
-参考：
-ROSCon2017でのライトニングトークプレゼン
+This demonstration implements ROS2 on the GR-SAKURA II-Full board, which integrates a Renesas RX63N microcontroller.
+
+Useful references:
+ROSCon2017 lightning talk presentation [ROS2 implementation for MCUs]
 
 https://roscon.ros.org/2017/presentations/ROSCon%202017%20Lightning%20110.pdf
 
-https://vimeo.com/236129109
+ROSCon2017 Lightning Talks DAY1 video
+
+https://vimeo.com/236129109#t=24m18s
 
 RX63N
 
-https://www.renesas.com/ja-jp/products/microcontrollers-microprocessors/rx.html
+https://www.renesas.com/en-us/products/microcontrollers-microprocessors/rx.html
 
-GR-SAKURA II-FULL
+GR-SAKURA II-Full
 
-http://gadget.renesas.com/ja/product/sakura.html
+http://gadget.renesas.com/en/product/sakura.html
+
+There are two demonstrations, the procedures for which are described below.
+
+* Hello world demonstration
+Transmit/receive 'std_msgs/String' message
+
+* Tilt control demonstration
+Pan-tilt unit control using 'sensor_msgs/Joy' message
 
 
-ここでは、GR-SAKURA II-FULL上で動作するfreertpsを使って、デモを実行する手順を示します。
+Hardware requirements
+----------
 
-* Hello worldデモ
-  ROS2の文字列用メッセージ型"std_msgs::msg::String"の送受信デモ
+(1) Two GR-SAKURA-II Full (referred to as SAKURA) boards. 
 
-* Tilt Controlデモ
-  ROS2のJoystick用メッセージ型"sensor_msgs::msg::Joy"を使ったJoystickによるパンチルト台の制御デモ
+The boards may be purchased through the websites below.
 
+http://in.element14.com/renesas/gr-sakura-full/32-bit-mcu-dev-board/dp/2311256
 
-デモ実行環境
-------------
+http://int.rsdelivers.com/productlist/search?query=GR-SAKURA&tag=&family=9584 
 
-デモの実行に必要な項目は以下のとおりです。
-
-### **\[ハードウェア\]**
-
-(1) GR-SAKURA II-FULL 2枚
-作成したイメージが動作するターゲットボード。2枚のGR-SAKURA II-FULL（以降、SAKURA）が必要です。以下で購入が可能です。
-
-http://wakamatsu.mobi/eccube/html/products/detail.php?product_id=12010659
-
-http://jp.rs-online.com/web/p/processor-microcontroller-development-kits/1229826/
-
-* SAKURA(Pub): メッセージを送信するボード。Joystickシールドを取り付けて使用します。
-* SAKURA(Sub): メッセージを受信するボード。パンチルト台をUART接続して使用します。
+* SAKURA(Pub) Publisher node with a joystick shield
+* SAKURA(Sub) Subscriber node to control the pan-tilt unit
 
 ![GR-SAKURA](docs/renesas_rx/images/GR-SAKURA.png)
 
-(2) Joystickシールド
-SAKURA(Pub)に接続するArduinoシールドです。以下などで購入が可能です。
+(2) Arduino joystick shield
 
 https://www.sainsmart.com/products/sainsmart-joystick-shied-expansion-board-for-arduino
 
-このシールドはSAKURAに直接搭載するとRJ45ポートと干渉します。ピンヘッダーなどで回避してください。
+This shield needs extra-height pin headers to have enough clearance for the RJ45 port.
 
-(3) パンチルト台
-このアプリのために作成したパンチルト台です（市販品ではありません）。パンチルト台制御アプリ（後述）がJoystickの位置情報をモーターの目標角度に変換し、それに従いパンチルト台が動作します。
+(3) Pan-tilt unit
 
-(4) Ethernet HUB
-SAKURA間をLAN接続するために必要です。
+This is a custom pan-tile unit for this prototype and cannot be purchased. The subscriber sends goal position to each motor (x-y) by using UART and it is converted to RS-485 signal inside of the unit. You will need to design this unit for your target applications. Additional information is available in the appendix.
 
-(5) E1 Emulator (オプション)
-RX63Nで使用可能なICEデバッガです。
-Hello worldデモにおいて、受信側のデバッグ・コンソールを出力する場合に必要となります。
+(4) Ethernet hub or switch
 
-このデモでは、上記(1)～(5)の機器は以下のように接続されます。
+(5) Renesas E1 Emulator (optional)
+
+This is necessary if you want to print received messages on the debug console for the “hello world” demonstration.
+
+Connection diagram
 
 ```
  +---------------------+
- |    Joystick         |
+ |    Joystick   　　  |
  +---------------------+
          | Arduino Shield I/F
  +---------------------+           +-----------------+
- |   SAKURA(Pub)       +-----------+  Ethernet HUB   |
+ |   SAKURA(Pub)  　　 +-----------+  Ethernet HUB   |
  +---------------------+  Ethernet +-------+---------+
-   192.168.1.100                           |
-                                           |
-   192.168.1.101                           |
- +---------------------+                   |
- |   SAKURA(Sub)       +-------------------+
+   192.168.1.100                      　　 |
+                                      　　 |
+   192.168.1.101                      　　 |
+ +---------------------+         　        |
+ |   SAKURA(Sub) 　　  +-------------------+
  +---------------------+  Ethernet
-         | UART                                
+         | UART　　　　　　　　　　　　　
  +---------------------+
- |  パンチルト台        |
+ | Pan-Tilt unit       |
  +---------------------+
 ```
 
-### **\[ソフトウェア\]**
+Software
+----------
 
-(1) C/C++ Compiler Package for RX Family
+(1) Renesas C/C++ Compiler Package for RX Family
 
-無償評価版を以下からダンロードします。インストール方法についてはWebページ上のドキュメントを参照してください。
+The evaluation version can be downloaded from the website. See the install instructions on the website.
 
-https://www.renesas.com/ja-jp/software/D4000427.html
+https://www.renesas.com/en-us/software/D4000428.html
 
-なお、無償評価版には機能、リンクサイズに制限がありますのでwebでの確認をお願いします。
-動作確認を行ったバージョンは「V.6.00.00」です。
+The evaluation version has limitations as described on the website. The version used for this demonstration was "V.6.00.00".
 
 (2) Flash Development Toolkit 
 
-無償評価版を以下からダンロードします。インストール方法についてはWebページ上のドキュメントを参照してください。
+The evaluation version can be downloaded from the website. See the install instructions on the website.
 
-https://www.renesas.com/ja-jp/software/D3017333.html
+https://www.renesas.com/en-us/software/D3017335.html
 
-動作確認を行ったバージョンは「V.4.09 Release 03」です。
+The version used for this demonstration was "V.4.09 Release 03".
 
-ソースコードの取得と展開
-------------
 
-(1) 以下のソースコードを入手し、任意のディレクトに展開します。
+Get the source
+----------
+(1) Download the RX Family Sample Code that uses TCP/IP for Embedded system M3S-T4-Tiny Firmware Integration Technology
 
-RXファミリ 組み込み用TCP/IP M3S-T4-Tinyを用いたサンプルプログラム Firmware Integration Technology
+https://www.renesas.com/en-us/software/D6000790.html
 
-https://www.renesas.com/ja-jp/software/D6000791.html
+(2) Unzip the files. You will need to edit the file below to change the divisor to '(2)' from '(4)' to support 1Mbps UART (this depends on the UART specification of your pan-tilt unit)
 
-(2) 展開したディレクトリ内の以下のファイルを編集します。
-
-```
 workspace/sample/rx63n_gr_sakura/r_config/r_bsp_config.h
-```
-
-UARTへの供給クロックを変更するため、以下のマクロ BSP_CFG_PCKB_DIVの値を(4)から(2)に変更します。これは今回使用するパンチルト台とのUART通信で１Mbpsの設定を使用するためのもので、UART通信の仕様に合わせて変更します。
-
 
 ```c
-    /* Peripheral Module Clock B Divider (PCKB).
-      Available divisors = /1 (no division), /2, /4, /8, /16, /32, /64
-    */
-    #define BSP_CFG_PCKB_DIV                (2)
+/* Peripheral Module Clock B Divider (PCKB).
+   Available divisors = /1 (no division), /2, /4, /8, /16, /32, /64
+*/
+#define BSP_CFG_PCKB_DIV                (2)
 ```
 
+(3) Download the freertps code for the RX63N
 
-(3) 以下のURLよりRX63N版のfreertpsを入手します。
+https://github.com/godzilla-max/freertps/archive/master.zip
 
-https://github.com/godzilla-max/freertps/archive/porting-to-rx.zip
-
-上記アーカイブ内のディレクトリ名を「freertps」に変更して、以下のディレクトリ内で展開してください。
+Unzip the file into the directory below.
 
 ```
-    workspace/sample/rx63n_gr_sakura/
+workspace/sample/rx63n_gr_sakura/
 ```
 
-(4) 以下のURLよりデモアプリケーションで使用するUARTドライバを入手します。
+(4) Download the UART driver
 
 https://github.com/godzilla-max/uart/archive/master.zip
 
-上記アーカイブ内のディレクトリ名を「uart」に変更して、以下のディレクトリ内で展開してください。
+Unzip the file into the directory below.
 
 ```
-    workspace/sample/rx63n_gr_sakura/
+workspace/sample/rx63n_gr_sakura/
 ```
 
-
-(1)～(4)の手順で作成されるディレクトリ構造は以下のとおりです。
+The file structure created by steps 1 to 4 should be as below.
 
 ```
-    workspace/sample/rx63n_gr_sakura/ [TCP/IP M3S-T4-Tiny を用いたサンプルプログラム]
-    |
-    |-- freertps/                     [RX63N版 freertpsのコード一式]
-    |   |
-    |   |-- apps/ [FreeRTPSを利用するアプリのサンプル]
-    |   |   |-- ...(SNIPPED)...
-    |   |   |-- rx63n_gr_sakura_joystick/ [Joystick制御アプリ]
-    |   |   |-- rx63n_gr_sakura_listener/ [文字列"Hello world"の受信アプリ]
-    |   |   |-- rx63n_gr_sakura_talker/   [文字列"Hello world"の送信アプリ]
-    |   |   |-- rx63n_gr_sakura_tilt_ctrl/[パンチルト台制御アプリ]
-    |   |   |-- ...(SNIPPED)...
-    |   |
-    |   |-- include/
-    |   |-- psm/
-    |   |-- r2/
-    |   |-- ros2_demos/
-    |   |-- rosmsg_apps/
-    |   |-- scripts/
-    |   |-- systems/
-    |   |   |-- ...(SNIPPED)...
-    |   |   |-- rx63n_gr_sakura/      [freertps RX63N + M3S-T4-Tiny依存部分]
-    |   |   |-- ...(SNIPPED)...
-    |   |-- tests/
-    |   |-- tiny/
-    |   `-- utils/
-    |-- HardwareDebug/
-    |-- r_bsp/
-    |-- r_cmt_rx/
-    |-- r_config/
-    |-- r_ether_rx/
-    |-- r_pincfg/
-    |-- r_sys_time_rx/
-    |-- r_t4_driver_rx/
-    |-- r_t4_rx/
-    |-- src/
-    `-- uart/                         [UARTドライバ]
+workspace/sample/rx63n_gr_sakura/
+|
+|-- freertps/                     [freertps codes]
+|   |
+|   |-- apps/
+|   |   |-- ...(SNIPPED)...
+|   |   |-- rx63n_gr_sakura_joystick/ [Joystick control application]
+|   |   |-- rx63n_gr_sakura_listener/ ["Hello world" message RX application]
+|   |   |-- rx63n_gr_sakura_talker/   ["Hello world" message TX application]
+|   |   |-- rx63n_gr_sakura_tilt_ctrl/[pan-tilt control application]
+|   |   |-- ...(SNIPPED)...
+|   |
+|   |-- include/
+|   |-- psm/
+|   |-- r2/
+|   |-- ros2_demos/
+|   |-- rosmsg_apps/
+|   |-- scripts/
+|   |-- systems/
+|   |   |-- ...(SNIPPED)...
+|   |   |-- rx63n_gr_sakura/      [freertps RX63N abstraction S/W]
+|   |   |-- ...(SNIPPED)...
+|   |-- tests/
+|   |-- tiny/
+|   '-- utils/
+|-- HardwareDebug/
+|-- r_bsp/
+|-- r_cmt_rx/
+|-- r_config/
+|-- r_ether_rx/
+|-- r_pincfg/
+|-- r_sys_time_rx/
+|-- r_t4_driver_rx/
+|-- r_t4_rx/
+|-- src/
+'-- uart/                         [UART driver S/W]
 ```
 
-ファームウェアのビルド方法
-------------
+Build the project
+----------
 
-(1) SAKURA(RX63N）用にビルドを行います。
+(1) Project conversion
 
-詳細は以下に記載されていますが、RX63N用にCS+プロジェクトに変換します。
-RX ファミリ 組み込み用TCP/IP M3S-T4-Tiny を用いたサンプルプログラム（第５章）
+   Reference document (see Chapter 5):
 
-https://www.renesas.com/ja-jp/doc/products/mpumcu/apn/rx/002/r20an0312jj0106-rx-t4.pdf
+   https://www.renesas.com/en-us/doc/products/mpumcu/apn/rx/002/r20an0312ej0106-rx-t4.pdf
 
-RX63Nプロジェクト変換では、以下のように設定します。マイクロコントローラの品番が違うこと、命令セット・アーキテクチャの設定を変更しないことに注意してください。
+   SAKURA(RX63N) conversion setting
 
-(1-1) CS+ for CC を起動し、「e2 studio / CubeSuite / …」の「GO」ボタンを押します。
 
-![import_step1_1](docs/renesas_rx/images/csplus_import2.png)
+   (1-1) Start CS+ for CC and click the "GO" button in "e2 studio / CubeSuite / …".
 
-初回以降にCS+ for CCが起動されることで、上記の画面が出力されない場合は、画面内の以下のボタンをクリックしてください。
+![import_step1_1](docs/renesas_rx/images/csplus_import2_en.png)
 
-![import_step1_2](docs/renesas_rx/images/csplus_import1.png)
+   If you do not see a window like that shown above, click the start button.
 
-(1-2) 「プロジェクトを開く」の画面内で、以下のように「rx63n_gr_sakura.rcpc」を選択してください。
-    
-![import_step2_3](docs/renesas_rx/images/csplus_import3.png)
-    
+![import_step1_2](docs/renesas_rx/images/csplus_import1_en.png)
 
-(1-3) 「プロジェクト変換設定」ウインドウが開き、ツリー上でプロジェクトを選択します。
+   (1-2) Select the e2 studio project file 'rx63n_gr_sakura.rcpc' and click open.
 
-![import_step3](docs/renesas_rx/images/csplus_import4.png)
+![import_step2_3](docs/renesas_rx/images/csplus_import3_en.png)
 
-(1-4) ツリーの右側のプロジェクト設定で、使用するマイクロコントローラを「RX63N」->「R5F563NYDxFP」を選択して「OK」を押します。CS+は変換されたプロジェクトを出力します。
+   (1-3) The "Project Convert Settings" window will open. Select the project in the project tree.
 
-![import_step3](docs/renesas_rx/images/csplus_import5.png)
+![import_step3](docs/renesas_rx/images/csplus_import4_en.png)
 
-以下のようなダイアログが出力された場合は、「いいえ」をクリックしてください
+   (1-4) In the project settings on the right side of project tree, for the microcontroller select 'RX64M' -> 'R5F563NYDxFP' and click OK. CS+ outputs the converted project.
 
-![import_step3](docs/renesas_rx/images/csplus_import6.png)
+![import_step3](docs/renesas_rx/images/csplus_import5_en.png)
 
-(1-5)「プロジェクトツリー」から「CC-RX」を選択します。
+   If you see the dialog below, click no.
 
-![import_step3](docs/renesas_rx/images/csplus_import7.png)
+![import_step3](docs/renesas_rx/images/csplus_import6_en.png)
 
-(1-6)「共通オプション」タブ->「CPU」->「命令セット・アーキテクチャ」は変更しません。
+   (1-5) Select 'CC-RX' in the project tree.
 
-![import_step3](docs/renesas_rx/images/csplus_import8.png)
+![import_step3](docs/renesas_rx/images/csplus_import7_en.png)
 
-(1-7)「共通オプション」タブ->「よく使うオプション(コンパイル)」->「最適化レベル」を"0"に設定してください。
+   (1-6) Make sure 'RXv1 architecture' is selected in the 'Instruction set architecture' menu. DO NOT change the architecture property.
 
-![import_step3](docs/renesas_rx/images/csplus_import9.png)
+![import_step3](docs/renesas_rx/images/csplus_import8_en.png)
 
-(2) src/以下のファイルをすべてビルド対象外とするため、「プロジェクトツリー」の「ファイル」->「src」上で「右クリック」->「プロパティ」を選択後、「ビルドの対象とする」を「いいえ」に設定します。
+   (1-7) Select '0 (-optimize=0)' for the optimization level under 'Frequently Used Options(for Compile)'
 
-![build_step2](docs/renesas_rx/images/csplus1.png)
+![import_step3](docs/renesas_rx/images/csplus_import9_en.png)
 
-(3) 以下のディレクトリを「ファイル」上にドラッグ＆ドロップしてください。
+(2) Exclude all the files under '/src' from the build ('Project tree' -> 'File' -> 'src' -> right click -> 'Property')
+
+![build_step2](docs/renesas_rx/images/csplus1_en.png)
+
+(3) Drag and drop the directory below into 'File'
 
 ```
 workspace/sample/rx63n_gr_sakura/uart
 ```
 
-![build_step3](docs/renesas_rx/images/csplus2.png)
+![build_step3](docs/renesas_rx/images/csplus2_en.png)
 
-「フォルダとファイル追加」の画面では、「検索するサブフォルダの階層数」に十分深い階層数として"10"を設定して、「OK」をクリックしてください。
+Set the subfolder search level to '10'.
 
-![build_step5](docs/renesas_rx/images/csplus4_2.png)
+![build_step5](docs/renesas_rx/images/csplus4_2_en.png)
 
-(4) 「ファイル」上で「右クリック」->「新しいカテゴリを追加」を選択後、「freertps」と入力してください。
+(4) Add a new category and name it 'freertps'.
 
-![build_step4](docs/renesas_rx/images/csplus3.png)
+![build_step4](docs/renesas_rx/images/csplus3_en.png)
 
-(5) 以下のディレクトリ・ファイルを「ファイル」->「freertps」上にドラッグ＆ドロップしてください。
+(5) Drag and drop the directories below into the 'freertps' category.
 
 ```
 workspace/sample/rx63n_gr_sakura/freertps/apps
@@ -278,9 +265,9 @@ workspace/sample/rx63n_gr_sakura/freertps/systems
 workspace/sample/rx63n_gr_sakura/freertps/*.c
 ```
 
-![build_step5](docs/renesas_rx/images/csplus4.png)
+![build_step5](docs/renesas_rx/images/csplus4_en.png)
 
-(6) 「ファイル」->「freertps」->「apps」内の以下のディレクトリを除くすべてのディレクトリに対して、「右クリック」->「プロジェクトから外す」を実行してください。
+(6) Remove all the directories, except for the directories shown below, from the 'freertps/apps' directory in the project.
 
 ```
 rx63n_gr_sakura_joystick
@@ -289,170 +276,151 @@ rx63n_gr_sakura_talker
 rx63n_gr_sakura_tilt_ctrl
 ```
 
-![build_step6](docs/renesas_rx/images/csplus5.png)
+![build_step6](docs/renesas_rx/images/csplus5_en.png)
 
-(7) 「ファイル」->「freertps」->「systems」内の以下のディレクトリを除くすべてのディレクトリに対して、「右クリック」->「プロジェクトから外す」を実行してください。
+(7) Remove all the directories except for 'rx63n_gr_sakura' from the project.
 
-```
-rx63n_gr_sakura
-```
+![build_step7](docs/renesas_rx/images/csplus6_en.png)
 
-![build_step7](docs/renesas_rx/images/csplus6.png)
-
-(8) 「ファイル」->「freertps」->「apps」の以下のディレクトリからビルドをするアプリを選択します。ビルド対象のアプリに対してのみ、ディレクトリ上で「右クリック」->「プロパティ」を選択後、「ビルドの対象とする」を「はい」に設定してください。それ以外のディレクトリでは、「いいえ」を設定してください。
+(8) Select the target application to be built by right clicking on the application.
 
 ```
-rx63n_gr_sakura_joystick [Joystick制御アプリ]
-rx63n_gr_sakura_listener [文字列"Hello world"の受信アプリ]
-rx63n_gr_sakura_talker   [文字列"Hello world"の送信アプリ]
-rx63n_gr_sakura_tilt_ctrl[パンチルト台制御アプリ]
+rx63n_gr_sakura_joystick
+rx63n_gr_sakura_listener
+rx63n_gr_sakura_talker
+rx63n_gr_sakura_tilt_ctrl
 ```
 
-※以下の例は「文字列"Hello world"の送信アプリ」をビルド対象した場合の例です。
+For example, to build the “Hello World” transmit application, select 'rx63n_gr_sakura_talker'.
 
-![build_step8](docs/renesas_rx/images/csplus7.png)
+![build_step8](docs/renesas_rx/images/csplus7_en.png)
 
-(9) 「CC-RX(ビルド・ツール)」->「共通オプション」のウィンドウ内で「追加のインクルード・パス」に以下を追加してください。
+(9) Add the directory below to 'Additional include paths' under 'Frequently Used Options (for Compile)'.
 
 ```
 %ProjectFolder%/../%ProjectName%/freertps/include
 ```
 
-![build_step9](docs/renesas_rx/images/csplus8.png)
+![build_step9](docs/renesas_rx/images/csplus8_en.png)
 
-(10) メニューバーから「ビルド」->「ビルド・プロジェクト」をクリックしてください。
+(10) Start the build by selecting 'Build project' from the 'Build' menu.
 
-![build_step10](docs/renesas_rx/images/csplus9.png)
+![build_step10](docs/renesas_rx/images/csplus9_en.png)
 
-以下が「出力」内に出力されればファームウェアのビルドは成功です。警告は無視してください。
+A successful build shows the message below. The warning messages can be ignored.
 
 ```
------- ビルド終了(エラー:0個, 警告:XX個)(rx63n_gr_sakura, HardwareDebug) ------  
+------ Build ended(Error:0, Warning:0)(rx63n_gr_sakura_1_, HardwareDebug)  ------  
 ```
 
-ファームウェアの書き込み方法
-------------
+Programing the SAKURA board with the firmware
+----------
 
-ファームウェアの書き込みは以下の2通りで行うことができます。
+Direct programming through onboard USB
 
-* USB経由での書き込み
-* E1 Emulator経由での書き込み
-
-書き込み手順は以下です。
-
-### **\[USB経由での書き込み\]**
-
-(1) SAKURAのスイッチ SW3を「RUN」の反対側にスライドさせます。
+(1) Set SW-3 (slide switch) of the SAKURA to boot mode.
 
 ![flash_wr1](docs/renesas_rx/images/slide_sw3.png)
 
-(2) SAKURAをUSB経由でPCと接続します。
+(2) Connect the SAKURA board to the computer using a USB cable (USB mini-B cable).
 
-(3) SAKURAのRESET SW（SW1：赤いボタン）を押します。
+(3) Reset the SAKURA board by pressing SW1 (red button).
 
 ![flash_wr2](docs/renesas_rx/images/reset_sw.png)
 
-(4) Flash Development Toolkitを起動します。
+(4) Start the Flash Development Toolkit.
 
-(5) 「ようこそ！」の画面で、「新規プロジェクトワークスペースの作成」にチェックをした後に、「OK」をクリックします。
+(5) Create a new project.
 
-![flash_wr5](docs/renesas_rx/images/fdt1.png)
+![flash_wr5](docs/renesas_rx/images/fdt1_en.png)
 
-(6) 「新規プロジェクトワークスペース」の画面で、「ワークスペース名」を入力した後に(例: Test)、「OK」をクリックします。
+(6) Input the name of the project ('test' in this example).
 
-![flash_wr6](docs/renesas_rx/images/fdt2.png)
+![flash_wr6](docs/renesas_rx/images/fdt2_en.png)
 
-(7) 「デバイスとカーネルの選択」の画面で、「Generic BOOT Device」を選択した後に「次へ」をクリックします。
+(7) Select 'Generic BOOT Device' under the 'Choose Device And Kernel' menu.
 
-![flash_wr7](docs/renesas_rx/images/fdt3.png)
+![flash_wr7](docs/renesas_rx/images/fdt3_en.png)
 
-(8) 「通信ポート」の画面で、「Select Port」から「USB Direct」を選択した後に「次へ」をクリックします。
+(8) Select 'USB Direct' for 'Select port:' under the 'Communications Port' menu
 
-![flash_wr8](docs/renesas_rx/images/fdt4.png)
+![flash_wr8](docs/renesas_rx/images/fdt4_en.png)
 
-(9) 「FLASH Development Toolkit」の画面で、以下のようなダイアログが出力された場合は、「OK」をクリックします。
+(9) Click OK if you see the dialog below.
 
-![flash_wr9](docs/renesas_rx/images/fdt5.png)
+![flash_wr9](docs/renesas_rx/images/fdt5_en.png)
 
-(10) 「Select Device」の画面で、「OK」をクリックします。
+(10) Select 'RX600 Series (LittelEndian)' under the 'Select a device' menu .
 
-![flash_wr10](docs/renesas_rx/images/fdt7.png)
+![flash_wr10](docs/renesas_rx/images/fdt7_en.png)
 
-(11) 「汎用デバイスの確認」の画面で、「OK」をクリックします。
+(11) Click OK
 
-![flash_wr11](docs/renesas_rx/images/fdt8.png)
+![flash_wr11](docs/renesas_rx/images/fdt8_en.png)
 
-(12) 「デバイス設定」の画面で、「入力クロック」に「12.00」を選択して、「次へ」をクリックします。
+(12) Enter 12.00MHz for the CPU crystal frequency for the selected device tab under the 'Device Settings' menu
 
-![flash_wr12](docs/renesas_rx/images/fdt9.png)
+![flash_wr12](docs/renesas_rx/images/fdt9_en.png)
 
-(13) 「書き込みオプション」の各設定項目がそれぞれ以下のようになっていることを確認して、「完了」をクリックします。
+(13) Confirm the settings shown below and click on Done.
 
-* Protection => Automatic
-* Messaging => Advanced
-* Readback Verification => No
+   * 'Protection' => 'Automatic'
+   * 'Messaging' => 'Advanced'
+   * 'Readback Verification' => 'No'
 
-![flash_wr13](docs/renesas_rx/images/fdt10.png)
+![flash_wr13](docs/renesas_rx/images/fdt10_en.png)
 
-(14) メニュー「ファイル」をクリックし、「データファイルを開く」をクリックします。その後、「データファイルのロード」の画面で、「rx63n_gr_sakura」を選択して、「開く」をクリックしてください。
+(14) For the data file to load, select the 'rx63n_gr_sakura' file.
 
-![flash_wr14](docs/renesas_rx/images/fdt11.png)
+![flash_wr14](docs/renesas_rx/images/fdt11_en.png)
 
-(15) メニュー「デバイス」をクリックし、「対象ファイルのダウンロード」をクリックしてください。
+(15) Select 'Download Active File' under the 'Device' menu to initiate flash programming.
 
-![flash_wr15](docs/renesas_rx/images/fdt12.png)
+![flash_wr15](docs/renesas_rx/images/fdt12_en.png)
 
-以下の出力されれば書き込み完了です。
-
-```
-書き込みが完了しました
-```
-
-(16) Flash Development Toolkitを終了します。
-
-(17) SAKURAのスイッチ SW3を「RUN」側に戻します。
-
-
-
-### **\[E1 Emulator経由での書き込み\]**
-(1) CS+のメニューの「デバッグ」->「使用するデバッグ・ツール」内から「RX E1(JTAG)」をクリックします。
-
-![csplus_wr1](docs/renesas_rx/images/csplus10.png)
-
-(2) CS+のメニューの「デバッグ」->「デバッグ・ツールへダウンロード」をクリックします。
-
-![csplus_wr2](docs/renesas_rx/images/csplus11.png)
-
-以下のダイアログが出て書き込みに失敗する場合は、「RX E1(JTAG)」の「接続用設定」タブ内の「クロック」->「メイン・クロック・ソース」を「HOCO」に設定して、(2)の手順を再実施してください。
+The message below indicates that programming successfully completed.
 
 ```
-ダウンロードに失敗しました。
-
-[エラーの直接原因]
-メイン・クロック周波数の値が正しく入力されていません。(E1891713)
+Image written to device
 ```
 
-動作確認
-----
+(16) Close the Flash Development Toolkit.
 
-### Hello worldデモ
+(17) Set SW-3 (slide switch) of the SAKURA board to normal mode (the switch must be to the side marked 'RUN' on the board).
 
-SAKURA間で、文字列用メッセージ型"std_msgs::msg::String"の転送ができることを確認します。
-動作確認には受信側のデバッグ・コンソール出力を確認するためは、E1 Emulatorを使ったデバッグコンソールの機能が必要です。
+Programming using the E1 Emulator
+----------
 
-(1) 文字列"Hello world"の送信アプリのみを選択してビルドを行い、SAKURA(Pub)に書き込みます。
+(1) Select 'RX E1(JTAG)' as the debug tool under the 'Debug' -> 'Using Debug Tool' menu of the CS+ tool.
 
-(2) 文字列"Hello world"の受信アプリのみを選択してビルドを行い、SAKURA(Sub)に書き込みます。
+![csplus_wr1](docs/renesas_rx/images/csplus10_en.png)
 
-(3) SAKURA(Pub)に電源を接続します。
+(2) Select 'Download' under the 'Debug' menu. This initiates flash programming.
 
-(4) E1 Emulatorを接続した状態で、SAKURA(Sub)に電源を接続します。
+![csplus_wr2](docs/renesas_rx/images/csplus11_en.png)
 
-(5) CS+のメニューの「デバッグ」->「デバッグ・ツールへ接続」をクリックして、SAKURA(Sub)をデバッガに接続します。
+If the file download fails, select 'HOCO' for the 'Main clock source' of the 'Clock' category under the 'Connect Settings' tab.
 
-(6) CS+のメニューの「デバッグ」->「CPUリセット」をクリックし、そして「デバッグ」->「実行」をクリックして、SAKURA(Sub)を起動させます。
+Demonstration
+----------
 
-(7) 以下のように出力されると、SAKURA間で文字列転送が成功しています。
+### Hello world demonstration
+
+This demonstration requires the Renesas E1 Emulator to see the debug console output of the publisher node SAKURA board. It sends 'std_msgs/String' messages from the publisher node SAKURA board to the subscriber node SAKURA board.
+
+(1) Build the code, selecting 'rx63n_gr_sakura_talker' for the target application, and program it to the publisher node SAKURA board.
+
+(2) Build the code, selecting 'rx63n_gr_sakura_listener' for the target application, and program it to the subscriber node SAKURA.
+
+(3) Power up the publisher node SAKURA board.
+
+(4) Power up the subscriber node SAKURA board with the E1 Emulator connected.
+
+(5) Start the CS+ Debugger by selecting the 'CS+ debug' menu.
+
+(6) Start the subscriber node SAKURA board software by selecting the 'CPU reset-debug-run' menu.
+
+(7) Successful operation will show the following output.
 
 ```
 hello, world!
@@ -470,85 +438,84 @@ I heard: [Hello World: 7]
 ....(SNIPPED)....
 ```
 
-なお、SAKURA(Pub)とSAKURA(Sub)は、PC Linux上のROS2(Beta2以降)付属デモtalkerとlistenerに代替可能です。代替する場合は以下のコマンドをLinux terminalで実行してください。
+Note: The publisher node and subscriber node SAKURA boards can be replaced by the 'talker' or 'listener' PC demonstration code from the standard ROS2 distribution. This can be done by executing the following commands on a PC (the below commands are for Linux or MacOS).
 
-
-\[SAKURA(Pub)の代替\]
+Publisher:
 
 ```
-$ cd <ros2をビルドしたワークスペース>
+$ cd <ROS2 workspace>
 $ . install/local_setup.bash
 $ ros2 run demo_nodes_cpp  talker
 ```
 
-\[SAKURA(Sub)の代替\]
+Subscriber:
 
 ```
-$ cd <ros2をビルドしたワークスペース>
+$ cd <ROS2 workspace>
 $ . install/local_setup.bash
 $ ros2 run demo_nodes_cpp listener_best_effort
 ```
 
-### Tilt Controlデモ
+### Tilt Control demonstration
 
-SAKURA(Pub)がROS2のJoystick用メッセージ型"sensor_msgs::msg::Joy"を送信し、それを受け取ったSAKURA(Sub)がパンチルト台を制御できることを確認します。
+Use a publishing SAKURA board to send 'sensor_msgs/Joy' messages and a subscribing SAKURA board to receive the messages and control the pan-tilt unit.
 
-(1) Joystick制御アプリのみを選択してビルドを行い、SAKURA(Pub)に書き込みます。
+(1) Build the code, selecting 'rx63n_gr_sakura_joystick' for the target application, and program it to the publishing (joystick) SAKURA board.
 
-(2) パンチルト台制御アプリのみを選択してビルドを行い、SAKURA(Sub)に書き込みます。
+(2) Build the code, selecting 'rx63n_gr_sakura_tilt_ctrl' for the target application, and program it to the subscribing (pan-tilt) SAKURA board.
 
-(3) SAKURA(Pub)、SAKURA(Sub)に電源を接続します。
+(3) Power up the two boards.
 
-(4) Joystickを操作して、パンチルト台が連動して動いていることを確認します。
-
-
-パンチルト台について
-====
-
-このアプリのために作成したパンチルト台のため購入することはできません。
-パンチルト台制御アプリがJoystickの位置情報をモーターの目標角度に変換します。目標位置はSAKURA（Sub)のUARTで送信し、パンチルト台内部でRS485信号に変換し、パンチルト台のサーボモーターを制御します。
-SAKURA（Sub)からパンチルト台へのUART通信の接続仕様を以下に示します。このように通信されていれば正しく動作していることになります。
+(4) The pan-tilt unit should move when the joystick is moved.
 
 
-UART仕様 (Serial channel-1, P20/TXD0, P21/RXD0)
+Appendix
+----------
+
+### Additional information for the pan-tilt unit.
+
+The pan-tilt unit is custom-built for this demonstration and cannot be purchased as-is. However, it is not difficult to construct. It uses two Dynamixel MX-64AR motors and the goal position for each is provided through a UART interface. The 'rx63n_gr_sakura_tilt_ctrl' application receives the joystick position and converts it to a goal position for each servo motor. UART signaling is converted to RS-485 inside the pan-tilt unit. The UART specification and command format is described below.
+
+#### Interface specification to the Pan-Tilt unit
+
+UART (SAKURA board serial1 channel, P20/TXD0, P21/RXD0)
+
 Baud rate: 1M bps
-Data format: 8-b data, 1-b stop bit, no parity, no flow control
 
-制御コマンド仕様 (send only)
+Data format: 8 bits data, 1 bit stop bit, no parity, no flow control
+
+#### Command format (send only)
+
 Byte
+
 1st header 0xFF (fixed)
+
 2nd header 0xFF (fixed)
+
 3rd motor ID (0x01:x 0x02:y)
-4th 0x1E (fixed) 
-5th 目標角度（lowest byte）
-6th 目標角度（highest byte）
 
-目標角度は2048（直立）+/-218 の範囲で指定されます。
+4th 0x1E (fixed)
 
-使用モーター
-Dynamixel MX-64AR
+5th lowest byte of goal position (type: unsigned short, little endian)
 
-http://support.robotis.com/en/product/actuator/dynamixel/mx_series/mx-64at_ar.htm
+6th highest byte of goal position
 
+The goal position is defined as 2048 (upright) +218/-218 
 
-お問い合わせ
-===
-ROS Discourseにスレッドを立てる予定です。
+[Dynamixel motor MX-64AR](http://support.robotis.com/en/product/actuator/dynamixel/mx_series/mx-64at_ar.htm)
 
+Comments and discussion
+----------
 
-制限事項
-====
+A new thread will be posted on the ROS Discourse.
 
-* freertpsのAPI frudp_listen()の引数である時間間隔の精度は1秒単位です。1秒より短い時間間隔が必要な場合は"0.0f"を設定してください。
-* PC上のROS2への接続確認は、ミドルウェアとしてFast-RTPSを使っている環境でのみ行っています。他のミドルウェアへの接続は未確認です。
+Known issues/limitations
+----------
 
+* The parameter resolution for API frudp_listen() is 1 second. Set to "0.0f" if you need better resolution.
+* FastRTPS on the PC was used to confirm communication between PC and the SAKURA board. No other middleware stacks were tested.
 
-免責事項
-===
+Disclaimer
+----------
 
-当デモのご利用、もしくはご利用になれないことにより発生したいかなる損害や不利益について、当方は一切の責任を負いません。自己責任の上でご使用下さい。
-
-
-
-
-
+We will not be liable for damages or losses arising from your use or inability to use this demonstration. Use at your own risk.
